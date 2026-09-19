@@ -12,6 +12,18 @@ metadata:
 
 Use this skill to select and run a compatible workflow from this repository. Treat kernel flashing as a separate destructive operation.
 
+## One-command path
+
+After confirming that the target is the tested `popsicle` configuration, run from a clone of this repository:
+
+```bash
+.agents/skills/sm8850-droidspaces-kernel/scripts/dispatch-build.sh
+```
+
+The script installs `gh` when a supported package manager is available, reuses an existing GitHub authorization, or starts the official one-time device authorization when needed. It then selects/creates a writable fork, enables and registers Actions, dispatches the known-good recipe, waits for completion, downloads artifacts, and prints SHA-256 hashes.
+
+The only unavoidable first-use interaction is approving GitHub's device authorization in a browser. Subsequent builds reuse the locally stored `gh` credential and can run unattended. Set `WAIT_FOR_BUILD=false` to return after dispatch, `DOWNLOAD_RESULT=false` to skip downloading, `OUTPUT_DIR=/path` to choose the artifact destination, or `SETUP_ONLY=true` to validate authorization/repository/Actions without dispatching a build.
+
 ## Hard safety rules
 
 1. Never ask for, accept, echo, commit, or store a GitHub password or token. Use `gh auth login --web` (device authorization).
@@ -107,25 +119,27 @@ Do not use the OPPO/OnePlus/Realme OKI 6.12.23, 6.12.38, or 6.12.58 workflows fo
 
 ## 3. Authenticate safely
 
-Check authentication:
+Normally the bundled dispatch script handles this section. It first checks:
 
 ```bash
 gh auth status --hostname github.com
 ```
 
-If needed:
+When no reusable authorization exists, it runs:
 
 ```bash
-gh auth login --hostname github.com --git-protocol https --web
+gh auth login --hostname github.com --git-protocol https --web --scopes repo,workflow
 ```
 
-If updating or registering workflow files requires an extra scope:
+GitHub prints a one-time code and authorization URL. The account owner must approve this first authorization personally; an agent cannot safely or legitimately bypass it. Do not use account passwords. After approval, GitHub CLI stores its OAuth credential locally and later Skill invocations proceed without another prompt unless the credential is revoked or expires.
+
+For an existing login that lacks workflow scope:
 
 ```bash
 gh auth refresh --hostname github.com --scopes workflow
 ```
 
-The user must complete the browser/device authorization personally. Never solicit credentials in chat.
+Never solicit credentials in chat, put tokens in command arguments, or commit GitHub CLI configuration files.
 
 ## 4. Ensure a writable repository and registered Actions
 
@@ -151,11 +165,23 @@ Do not rewrite workflow logic merely to force registration.
 
 ## 5. Dispatch the tested recipe
 
-From the repository root, run:
+From the repository root, the recommended fully orchestrated command is:
 
 ```bash
 .agents/skills/sm8850-droidspaces-kernel/scripts/dispatch-build.sh
 ```
+
+Optional environment controls:
+
+```bash
+WAIT_FOR_BUILD=false ./path/to/dispatch-build.sh  # dispatch and return
+DOWNLOAD_RESULT=false ./path/to/dispatch-build.sh # wait but do not download
+OUTPUT_DIR="$HOME/kernel-output" ./path/to/dispatch-build.sh
+REPO="owner/oppo_oplus_realme_sm8850" ./path/to/dispatch-build.sh
+SETUP_ONLY=true ./path/to/dispatch-build.sh       # no build is started
+```
+
+By default it waits, downloads, and hashes artifacts. It never flashes them.
 
 Or dispatch manually:
 
